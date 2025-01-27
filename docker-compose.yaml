@@ -1,5 +1,5 @@
 services:
-  homework-07:
+  homework:
     build:
       context: .
       dockerfile: Dockerfile
@@ -8,6 +8,6 @@ services:
   apache-utils:
     build:
       context: .
-      dockerfile: DockerfileApacheUtils
-    command: "/usr/bin/ab -k -c 10 -n 1000 http://homework-07:8080/index.html"
+      dockerfile: apache_utils.Dockerfile
+    command: "/usr/bin/ab -k -c 10 -n 1000 http://homework:8080/index.html"
     entrypoint: ''
