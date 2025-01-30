@@ -18,6 +18,18 @@ CR_LF_BYTES = b"\r\n"
 def prepare_response(
     http_code: int, content: bytes, is_head_request: bool = False
 ) -> bytes:
+    """
+    Подготавливает ответ HTTP сервера.
+
+    :param http_code: Код состояния HTTP.
+    :type http_code: int
+    :param content: Содержимое ответа (в байтах).
+    :type content: bytes
+    :param is_head_request: Флаг, указывающий, что запрос был методом HEAD. По умолчанию False.
+    :type is_head_request: bool
+    :return: Байтовая строка с готовым ответом HTTP сервера.
+    :rtype: bytes
+    """
     headers = [
         f"HTTP/1.1 {http_code} {codes.get(http_code, 'Unknown')}",
         "Server: python",
@@ -37,8 +49,20 @@ def prepare_response(
 def make_response(
     method: str, path: str, client_socket: socket.socket, document_root: Path
 ):
+    """
+    Создает и отправляет ответ на HTTP запрос.
+
+    :param method: Метод HTTP запроса.
+    :type method: str
+    :param path: Путь к ресурсу в запросе.
+    :type path: str
+    :param client_socket: Сокет клиента для передачи ответа.
+    :type client_socket: socket.socket
+    :param document_root: Корневая директория документации сервера.
+    :type document_root: Path
+    """
     if not method or method.upper() not in ["GET", "HEAD"]:
-        prepare_response(405, b"Method Not Allowed")
+        client_socket.send(prepare_response(405, b"Method Not Allowed"))
         return
 
     x = urlparse(path)
@@ -54,37 +78,58 @@ def make_response(
 
 
 def handle_request(client_socket: socket.socket, document_root: Path):
+    """
+    Обрабатывает HTTP запрос от клиента.
+
+    :param client_socket: Сокет клиента для передачи ответа.
+    :type client_socket: socket.socket
+    :param document_root: Корневая директория документации сервера.
+    :type document_root: Path
+    """
     try:
-        # 1. get request
+        # 1. Получение запроса от клиента
         data = client_socket.recv(1024)
         if not data:
             return
-        # 2. get headers
+
+        # 2. Декодирование и разбиение на заголовки
         headers = data.decode(encoding="utf-8").split(CR_LF)
-        # 3. split headers to methods
+
+        # 3. Разделение заголовков на метод, путь и остальное
         method, path, _ = headers.pop(0).split(" ")
-        # 4. give back response
+
+        # 4. Отправка ответа клиенту
         make_response(method, path, client_socket, document_root)
     finally:
         client_socket.close()
 
 
 def start_server(host: str, port: int, document_root: Path):
-    # 1. create socket
-    # 2. bind socket to address and port
-    # 3. in while loop create threads with function for handle_request
-    logging.info(f"Start server: host={host}, port={port}")
+    """
+    Запуск сервера и ожидание входящих соединений.
+
+    :param host: Хост для прослушивания.
+    :type host: str
+    :param port: Порт для прослушивания.
+    :type port: int
+    :param document_root: Корневая директория документации сервера.
+    :type document_root: Path
+    """
+    # 1. Создание сокета
+    # 2. Привязка к адресу и порту
+    # 3. В бесконечном цикле создание потоков для обработки входящих запросов
+    logging.info(f"Запуск сервера: host={host}, port={port}")
 
     if not document_root.exists():
         logging.error(
-            f"Document root path {document_root} does not exists! Stop action"
+            f"Путь к корневой директории документации {document_root} не существует! Завершение действия."
         )
         exit(1)
-    logging.info(f"Document root configured: {document_root}")
-
+    logging.info(f"Корневая директория документации настроена: {document_root}")
     s_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s_tcp.bind((host, port))
     s_tcp.listen(5)
+
     while True:
         client_socket, _ = s_tcp.accept()
         client_handler = threading.Thread(
